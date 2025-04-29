@@ -1,4 +1,4 @@
-from main import SessionLocal, IsIlani
+from BACKEND.mainn import SessionLocal, IsIlani
 
 def seed_jobs():
     db = SessionLocal()
