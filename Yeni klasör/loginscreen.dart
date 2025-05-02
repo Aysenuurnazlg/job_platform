@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'register_screen.dart';
-import 'home_screen.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
+import 'home_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,32 +16,57 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  void _login() {
-  String username = _usernameController.text;
-  String password = _passwordController.text;
+  void _login() async {
+    String username = _usernameController.text;
+    String password = _passwordController.text;
 
-  if (username == "admin" && password == "1234") {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => HomeScreen()),
-    );
-  } else {
+    final url =
+        Uri.parse("http://127.0.0.1:8000/token"); // Gerekirse IP ile değiştir
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: {
+          "username": username,
+          "password": password,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final token = data['access_token'];
+
+        // Token saklanabilir: örneğin SharedPreferences ile
+        print("Giriş başarılı. Token: $token");
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => HomeScreen()),
+        );
+      } else {
+        _showError("Hatalı kullanıcı adı veya şifre.");
+      }
+    } catch (e) {
+      _showError("Sunucuya bağlanılamadı: $e");
+    }
+  }
+
+  void _showError(String message) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text("Hatalı Giriş"),
-        content: Text("Kullanıcı adı veya şifre yanlış."),
+        title: Text("Giriş Hatası"),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Tekrar Dene"),
+            child: Text("Tamam"),
           ),
         ],
       ),
     );
   }
-}
-
 
   @override
   Widget build(BuildContext context) {

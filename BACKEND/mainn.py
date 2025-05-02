@@ -147,14 +147,15 @@ Base.metadata.create_all(bind=engine)
 def read_root():
    return {"message": "Ana sayfaya hoş geldiniz!"}
 
-# Kullanıcı Kayıt (POST /register)
+# Kullanıcı Kayıt (POST /users/)
 class KullaniciKayit(BaseModel):
+    name: str
     email: str
     password: str
     phone: str
     role: str
 
-@app.post("/register")
+@app.post("/users/")
 def register_user(user: KullaniciKayit, db: Session = Depends(get_db)):
     if not is_valid_email(user.email):
         raise HTTPException(status_code=400, detail="Geçersiz e-posta!")
@@ -170,12 +171,27 @@ def register_user(user: KullaniciKayit, db: Session = Depends(get_db)):
         firebase_user = auth.create_user_with_email_and_password(user.email, user.password)
         firebase_uid = firebase_user["localId"]
         
-        yeni_kullanici = Kullanici(firebase_uid=firebase_uid, isim=user.email.split('@')[0], email=user.email, telefon=user.phone, rol=user.role)
+        yeni_kullanici = Kullanici(
+            firebase_uid=firebase_uid,
+            isim=user.name,
+            email=user.email,
+            telefon=user.phone,
+            rol=user.role
+        )
         
         db.add(yeni_kullanici)
         db.commit()
         
-        return {"message": f"{user.email} başariyla kaydedildi!"}
+        return {
+            "message": f"{user.email} başariyla kaydedildi!",
+            "user": {
+                "id": yeni_kullanici.id,
+                "name": yeni_kullanici.isim,
+                "email": yeni_kullanici.email,
+                "phone": yeni_kullanici.telefon,
+                "role": yeni_kullanici.rol
+            }
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Kayit sirasinda hata oluştu: {str(e)}")
 

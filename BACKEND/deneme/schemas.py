@@ -1,23 +1,27 @@
 from pydantic import BaseModel
-from typing import List, Optional
 from datetime import datetime
+from typing import Optional
 
+# Ortak alanlar
 class UserBase(BaseModel):
     email: str
     full_name: str
-    phone_number: str
+    phone_number: str  # <-- eksik alan eklendi
 
+# Yeni kullanıcı oluşturma
 class UserCreate(UserBase):
     password: str
 
+# Veritabanından gelen kullanıcı
 class User(UserBase):
     id: int
     is_active: bool
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
+# İş ilanları
 class JobBase(BaseModel):
     title: str
     description: str
@@ -33,20 +37,4 @@ class Job(JobBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
-
-class ReviewBase(BaseModel):
-    rating: int
-    comment: str
-    user_id: int
-
-class ReviewCreate(ReviewBase):
-    pass
-
-class Review(ReviewBase):
-    id: int
-    reviewer_id: int
-    created_at: datetime
-
-    class Config:
-        orm_mode = True 
+        from_attributes = True

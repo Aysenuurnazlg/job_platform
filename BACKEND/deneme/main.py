@@ -1,15 +1,16 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
-import models, schemas, crud
 from database import SessionLocal, engine
+import models, schemas, crud
+from auth import authenticate_user, create_access_token
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Yaşlı ve Engelli Bakım Platformu API")
 
-# CORS ayarları
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,7 +19,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dependency
 def get_db():
     db = SessionLocal()
     try:
@@ -33,32 +33,18 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
     return crud.create_user(db=db, user=user)
 
-@app.get("/users/", response_model=List[schemas.User])
-def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    users = crud.get_users(db, skip=skip, limit=limit)
-    return users
-
-@app.get("/users/{user_id}", response_model=schemas.User)
-def read_user(user_id: int, db: Session = Depends(get_db)):
-    db_user = crud.get_user(db, user_id=user_id)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return db_user
-
-@app.post("/jobs/", response_model=schemas.Job)
-def create_job(job: schemas.JobCreate, owner_id: int, db: Session = Depends(get_db)):
-    return crud.create_job(db=db, job=job, owner_id=owner_id)
+@app.post("/token")
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    token = create_access_token({"sub": user.email})
+    return {"access_token": token, "token_type": "bearer"}
 
 @app.get("/jobs/", response_model=List[schemas.Job])
 def read_jobs(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    jobs = crud.get_jobs(db, skip=skip, limit=limit)
-    return jobs
+    return crud.get_jobs(db, skip=skip, limit=limit)
 
-@app.post("/reviews/", response_model=schemas.Review)
-def create_review(review: schemas.ReviewCreate, reviewer_id: int, db: Session = Depends(get_db)):
-    return crud.create_review(db=db, review=review, reviewer_id=reviewer_id)
-
-@app.get("/reviews/{user_id}", response_model=List[schemas.Review])
-def read_user_reviews(user_id: int, db: Session = Depends(get_db)):
-    reviews = crud.get_user_reviews(db, user_id=user_id)
-    return reviews 
+@app.post("/jobs/", response_model=schemas.Job)
+def create_job(job: schemas.JobCreate, owner_id: int = 1, db: Session = Depends(get_db)):
+    return crud.create_job(db=db, job=job, owner_id=owner_id)

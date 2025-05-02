@@ -1,116 +1,120 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'postJob_screen.dart';
 import 'ProfileScreen.dart';
+import 'NotificationsScreen.dart';
+import 'settings_screen.dart';
 
-
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  List jobs = [];
+  int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchJobs();
+  }
+
+  Future<void> fetchJobs() async {
+    try {
+      final response =
+          await http.get(Uri.parse('http://localhost:8000/api/jobs/'));
+      if (response.statusCode == 200) {
+        setState(() {
+          jobs = json.decode(response.body);
+        });
+      }
+    } catch (e) {
+      print('Error fetching jobs: $e');
+    }
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ana Sayfa'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              Navigator.pushNamed(context, '/notifications');
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.pushNamed(context, '/settings');
-            },
-          ),
-        ],
+        title: const Text('İş İlanları'),
+        backgroundColor: Colors.blueGrey,
       ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.teal,
-              ),
-              child: Text(
-                'Menü',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.home),
-              title: const Text('Ana Sayfa'),
+      body: ListView.builder(
+        itemCount: jobs.length,
+        itemBuilder: (context, index) {
+          final job = jobs[index];
+          return Card(
+            margin: const EdgeInsets.all(8),
+            child: ListTile(
+              title: Text(job['title'] ?? 'İş Başlığı'),
+              subtitle: Text(job['location'] ?? 'Konum'),
+              trailing: Text('₺${job['salary'] ?? '0'}'),
               onTap: () {
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.person),
-              title: const Text('Profilim'),
-              onTap: () {
-                Navigator.push(
+                Navigator.pushNamed(
                   context,
-                  MaterialPageRoute(builder: (context) => const ProfileScreen()),  // Profil ekranına yönlendirme
+                  '/job-detail',
+                  arguments: job,
                 );
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.work),
-              title: const Text('İlan Ver'),
-              onTap: () {
-                Navigator.pushNamed(context, '/post-job');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Çıkış Yap'),
-              onTap: () {
-                Navigator.pushReplacementNamed(context, '/');
-              },
-            ),
-          ],
-        ),
+          );
+        },
       ),
-      body: Column(
-        children: [
-          // İlanlar Listesi
-          Expanded(
-            child: ListView.builder(
-              itemCount: 5, // Örnek 5 ilan
-              itemBuilder: (context, index) {
-                return Card(
-                  margin: const EdgeInsets.all(10),
-                  elevation: 3,
-                  child: ListTile(
-                    title: Text('İlan Başlığı ${index + 1}'),
-                    subtitle: const Text('İlan açıklaması burada yer alır.'),
-                    trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () {
-                      Navigator.pushNamed(context, '/job-detail');
-                    },
-                  ),
-                );
-              },
-            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.pushNamed(context, '/post-job');
+        },
+        backgroundColor: Colors.blueGrey,
+        child: const Icon(Icons.add),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Ana Sayfa',
           ),
-          // İlan Ver Butonu
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/post-job');
-              },
-              child: const Text('İlan Ver'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: Size(double.infinity, 50), backgroundColor: Colors.teal,
-              ),
-            ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications),
+            label: 'Bildirimler',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profil',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Ayarlar',
           ),
         ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.blueGrey,
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              Navigator.pushReplacementNamed(context, '/home');
+              break;
+            case 1:
+              Navigator.pushNamed(context, '/notifications');
+              break;
+            case 2:
+              Navigator.pushNamed(context, '/profile');
+              break;
+            case 3:
+              Navigator.pushNamed(context, '/settings');
+              break;
+          }
+        },
       ),
     );
   }

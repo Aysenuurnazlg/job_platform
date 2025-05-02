@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'register_screen.dart';
-import 'home_screen.dart';
-
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,32 +13,48 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  void _login() {
-  String username = _usernameController.text;
-  String password = _passwordController.text;
+  Future<void> _login() async {
+    final email = _usernameController.text;
+    final password = _passwordController.text;
 
-  if (username == "admin" && password == "1234") {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => HomeScreen()),
+    final response = await http.post(
+      Uri.parse('http://127.0.0.1:8000/token'),
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: {
+        'username': email,
+        'password': password,
+      },
     );
-  } else {
+
+    if (response.statusCode == 200) {
+      final responseData = jsonDecode(response.body);
+      final token = responseData['access_token'];
+
+      if (token != null) {
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        _showErrorDialog("Token alınamadı.");
+      }
+    } else {
+      _showErrorDialog("Kullanıcı adı veya şifre yanlış.");
+    }
+  }
+
+  void _showErrorDialog(String message) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text("Hatalı Giriş"),
-        content: Text("Kullanıcı adı veya şifre yanlış."),
+        title: const Text("Giriş Başarısız"),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Tekrar Dene"),
+            child: const Text("Tamam"),
           ),
         ],
       ),
     );
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -51,21 +66,21 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
+              const Text(
                 'Giriş Yap',
                 style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 32),
+              const SizedBox(height: 32),
               TextField(
                 controller: _usernameController,
                 decoration: InputDecoration(
-                  labelText: 'Kullanıcı Adı',
+                  labelText: 'E-posta',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
                 obscureText: true,
@@ -76,60 +91,47 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        title: Text("Bilgi"),
-                        content: Text("Şifre sıfırlama henüz aktif değil."),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: Text("Tamam"),
-                          ),
-                        ],
-                      ),
-                    );
+                    _showErrorDialog("Şifre sıfırlama henüz aktif değil.");
                   },
-                  child: Text(
+                  child: const Text(
                     'Şifremi Unuttum?',
-                    style: TextStyle(color: Colors.blue),
+                    style: TextStyle(color: Colors.blueGrey),
                   ),
                 ),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _login,
-                  child: Text('Giriş Yap'),
+                  child: const Text('Giriş Yap'),
                   style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: Colors.blueGrey,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               OutlinedButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => RegisterScreen()),
-                  );
+                  Navigator.pushNamed(context, '/register');
                 },
-                child: Text('Kayıt Ol'),
+                child: const Text('Kayıt Ol'),
                 style: OutlinedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 14, horizontal: 32),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 14, horizontal: 32),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  side: BorderSide(color: Colors.blue),
+                  side: const BorderSide(color: Colors.blueGrey),
                 ),
               ),
             ],
