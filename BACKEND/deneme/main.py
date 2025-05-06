@@ -48,3 +48,11 @@ def read_jobs(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 @app.post("/jobs/", response_model=schemas.Job)
 def create_job(job: schemas.JobCreate, owner_id: int = 1, db: Session = Depends(get_db)):
     return crud.create_job(db=db, job=job, owner_id=owner_id)
+
+@app.put("/users/{user_id}", response_model=schemas.User)
+def update_user(user_id: int, updated_user: schemas.UserBase, db: Session = Depends(get_db)):
+    db_user = crud.get_user_by_id(db, user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return crud.update_user(db, db_user, updated_user)
+

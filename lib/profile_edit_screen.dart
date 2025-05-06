@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ProfileEditScreen extends StatefulWidget {
   const ProfileEditScreen({super.key});
@@ -9,12 +11,74 @@ class ProfileEditScreen extends StatefulWidget {
 
 class _ProfileEditScreenState extends State<ProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
-  String _name = 'Ahmet Yılmaz';
-  String _email = 'ahmet.yilmaz@example.com';
-  String _phone = '555-1234-5678';
-  String _bio = 'Merhaba, ben Ahmet!';
-  String _location = 'Ankara, Türkiye';
+  String _userId = '';
+  String _name = '';
+  String _email = '';
+  String _phone = '';
+  String _bio = '';
   bool _notificationsEnabled = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args != null && args is Map<String, dynamic>) {
+      _userId = args['id'].toString();
+      _name = args['full_name'] ?? '';
+      _email = args['email'] ?? '';
+      _phone = args['phone_number'] ?? '';
+      _bio = args['bio'] ?? '';
+    } else {
+      // ❗ Geçici varsayılan veriler — test için
+      debugPrint(
+          'Uyarı: arguments boş veya geçersiz! Sahte veri kullanılıyor.');
+      _userId = '0';
+      _name = 'Deneme Kullanıcı';
+      _email = 'deneme@example.com';
+      _phone = '5551234567';
+      _bio = 'Bu bir test biyografisidir.';
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
+
+      final url = Uri.parse('http://127.0.0.1:8000/users/$_userId');
+
+      try {
+        final response = await http.put(
+          url,
+          headers: {"Content-Type": "application/json"},
+          body: json.encode({
+            "email": _email,
+            "full_name": _name,
+            "phone_number": _phone,
+            "bio": _bio,
+          }),
+        );
+
+        if (!mounted) return;
+
+        if (response.statusCode == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profil başarıyla güncellendi')),
+          );
+          Navigator.pop(
+              context, true); // Profil ekranını yenilemek için true döndür
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Hata: ${response.body}')),
+          );
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Bağlantı hatası: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,15 +88,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.save),
-            onPressed: () {
-              if (_formKey.currentState!.validate()) {
-                _formKey.currentState!.save();
-                // Profil güncelleme işlemleri burada yapılabilir
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profil başarıyla güncellendi')),
-                );
-              }
-            },
+            onPressed: _saveProfile,
           ),
         ],
       ),
@@ -43,34 +99,18 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Profil Fotoğrafı
-              GestureDetector(
-                onTap: () {
-                  // Profil fotoğrafı seçme işlemi
-                },
-                child: const CircleAvatar(
-                  radius: 50,
-                  backgroundImage: NetworkImage('https://www.example.com/profile.jpg'),
-                  child: Icon(Icons.camera_alt, size: 50, color: Colors.white),
-                ),
+              const CircleAvatar(
+                child: Icon(Icons.camera_alt, size: 50, color: Colors.white),
               ),
               const SizedBox(height: 16),
-
-              // Ad
               TextFormField(
                 initialValue: _name,
                 decoration: const InputDecoration(labelText: 'Ad Soyad'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Ad boş olamaz';
-                  }
-                  return null;
-                },
+                validator: (value) =>
+                    value == null || value.isEmpty ? 'Ad boş olamaz' : null,
                 onSaved: (value) => _name = value!,
               ),
               const SizedBox(height: 16),
-
-              // E-posta
               TextFormField(
                 initialValue: _email,
                 decoration: const InputDecoration(labelText: 'E-posta'),
@@ -86,22 +126,16 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 onSaved: (value) => _email = value!,
               ),
               const SizedBox(height: 16),
-
-              // Telefon Numarası
               TextFormField(
                 initialValue: _phone,
-                decoration: const InputDecoration(labelText: 'Telefon Numarası'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Telefon numarası boş olamaz';
-                  }
-                  return null;
-                },
+                decoration:
+                    const InputDecoration(labelText: 'Telefon Numarası'),
+                validator: (value) => value == null || value.isEmpty
+                    ? 'Telefon numarası boş olamaz'
+                    : null,
                 onSaved: (value) => _phone = value!,
               ),
               const SizedBox(height: 16),
-
-              // Biyografi
               TextFormField(
                 initialValue: _bio,
                 decoration: const InputDecoration(labelText: 'Biyografi'),
@@ -109,9 +143,6 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 maxLines: 3,
               ),
               const SizedBox(height: 16),
-
-
-              // Bildirim Ayarı
               SwitchListTile(
                 title: const Text('Bildirimleri Al'),
                 value: _notificationsEnabled,
@@ -121,23 +152,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   });
                 },
               ),
-              const SizedBox(height: 3),
-
-              // Güncelle Butonu
+              const SizedBox(height: 8),
               ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    _formKey.currentState!.save();
-                    // Profil güncelleme işlemleri burada yapılabilir
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Profil başarıyla güncellendi')),
-                    );
-                  }
-                },
+                onPressed: _saveProfile,
                 child: const Text('Güncelle'),
               ),
-
-            
             ],
           ),
         ),

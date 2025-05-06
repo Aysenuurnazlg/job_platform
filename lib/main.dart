@@ -1,4 +1,3 @@
-// main.dart
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'ProfileScreen.dart';
@@ -26,7 +25,10 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blueGrey,
         fontFamily: 'Arial',
       ),
-      home: const LoginScreen(),
+
+      // Uygulama giriş ekranıyla başlar
+      initialRoute: '/login',
+
       routes: {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
@@ -36,6 +38,8 @@ class MyApp extends StatelessWidget {
         '/settings': (context) => const SettingsScreen(),
         '/post-job': (context) => const PostJobScreen(),
         '/job-detail': (context) => const JobDetailScreen(),
+
+        // 🔁 ProfileEditScreen'e arguments ile veri göndereceğiz
         '/profile-edit': (context) => const ProfileEditScreen(),
       },
     );

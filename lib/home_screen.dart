@@ -1,8 +1,43 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'ProfileScreen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  List jobs = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchJobs();
+  }
+
+  Future<void> fetchJobs() async {
+    final url = Uri.parse('http://127.0.0.1:8000/jobs');
+
+    // Android emulator için uygun
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        setState(() {
+          jobs = json.decode(response.body);
+          isLoading = false;
+        });
+      } else {
+        print('Sunucu hatası: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Bağlantı hatası: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +76,8 @@ class HomeScreen extends StatelessWidget {
               Navigator.pop(context);
             }),
             _buildDrawerItem(Icons.person, 'Profilim', () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()));
             }),
             _buildDrawerItem(Icons.work, 'İlan Ver', () {
               Navigator.pushNamed(context, '/post-job');
@@ -52,30 +88,18 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
       ),
-      body: CustomScrollView(
-        slivers: [
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'İlanlar',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Color.fromARGB(255, 49, 71, 78),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : jobs.isEmpty
+              ? const Center(child: Text("Hiç ilan yok."))
+              : ListView.builder(
+                  padding: const EdgeInsets.only(top: 16, bottom: 80),
+                  itemCount: jobs.length,
+                  itemBuilder: (context, index) {
+                    final job = jobs[index];
+                    return _buildJobCard(context, job);
+                  },
                 ),
-              ),
-            ),
-          ),
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) => _buildJobCard(context, index),
-              childCount: 5,
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 80)),
-        ],
-      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.pushNamed(context, '/post-job'),
         icon: const Icon(Icons.add),
@@ -93,7 +117,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildJobCard(BuildContext context, int index) {
+  Widget _buildJobCard(BuildContext context, dynamic job) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -101,18 +125,17 @@ class HomeScreen extends StatelessWidget {
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
         title: Text(
-          'İlan Başlığı ${index + 1}',
+          job['title'] ?? 'Başlık',
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
-        subtitle: const Padding(
-          padding: EdgeInsets.only(top: 8.0),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 8.0),
           child: Text(
-            'İlan açıklaması burada yer alır.',
-            style: TextStyle(fontSize: 15),
+            job['description'] ?? 'Açıklama',
+            style: const TextStyle(fontSize: 15),
           ),
         ),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: () => Navigator.pushNamed(context, '/job-detail'),
+        trailing: Text("₺${job['salary']?.toStringAsFixed(0) ?? '0'}"),
       ),
     );
   }

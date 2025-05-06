@@ -19,10 +19,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
 
     // Backend olmadan kontrol
-  if (email == 'admin' && password == '1234') {
-    Navigator.pushReplacementNamed(context, '/home');
-    return;
-  }
+    if (email == 'admin' && password == '1234') {
+      Navigator.pushReplacementNamed(context, '/home');
+      return;
+    }
 
     final response = await http.post(
       Uri.parse('http://127.0.0.1:8000/token'),

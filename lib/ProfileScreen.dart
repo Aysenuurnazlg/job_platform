@@ -12,8 +12,18 @@ class ProfileScreen extends StatelessWidget {
     double rating = 4.5;
     List<String> jobTypes = ['Temizlik', 'Alışveriş', 'Teknik Destek'];
     List<Map<String, dynamic>> reviews = [
-      {'name': 'Ali Y.', 'rating': 5, 'comment': 'Çok hızlı ve yardımseverdi.', 'date': '12 Mart 2025'},
-      {'name': 'Zeynep K.', 'rating': 4, 'comment': 'İyi iş çıkardı, teşekkür ederim.', 'date': '8 Mart 2025'},
+      {
+        'name': 'Ali Y.',
+        'rating': 5,
+        'comment': 'Çok hızlı ve yardımseverdi.',
+        'date': '12 Mart 2025'
+      },
+      {
+        'name': 'Zeynep K.',
+        'rating': 4,
+        'comment': 'İyi iş çıkardı, teşekkür ederim.',
+        'date': '8 Mart 2025'
+      },
     ];
 
     return Scaffold(
@@ -42,17 +52,23 @@ class ProfileScreen extends StatelessWidget {
           children: [
             const CircleAvatar(
               radius: 50,
-              backgroundImage: AssetImage('assets/profile_placeholder.png'),
+              //backgroundImage: AssetImage('assets/profile_placeholder.png'),
             ),
             const SizedBox(height: 12),
             const Text(
               'Yaman Koper',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black87),
+              style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87),
             ),
             const SizedBox(height: 12),
             const Text(
               'Yardımcı İşler İçin Hedeflerime Ulaşıyorum',
-              style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Colors.black54),
+              style: TextStyle(
+                  fontSize: 16,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.black54),
             ),
             const SizedBox(height: 24),
 
@@ -61,7 +77,11 @@ class ProfileScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _infoCard(title: 'Aldığı İş', value: '$completedJobs'),
-                _infoCard(title: 'Puan', value: rating.toStringAsFixed(1), icon: Icons.star, iconColor: Colors.amber),
+                _infoCard(
+                    title: 'Puan',
+                    value: rating.toStringAsFixed(1),
+                    icon: Icons.star,
+                    iconColor: Colors.amber),
               ],
             ),
             const SizedBox(height: 30),
@@ -82,7 +102,8 @@ class ProfileScreen extends StatelessWidget {
             _sectionTitle('Yorumlar'),
             ...reviews.map((review) => Card(
                   margin: const EdgeInsets.symmetric(vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                   elevation: 2,
                   child: ListTile(
                     title: Text(review['name']),
@@ -95,7 +116,8 @@ class ProfileScreen extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             'Yorum Tarihi: ${review['date']}',
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey.shade600),
                           ),
                         ],
                       ),
@@ -105,7 +127,9 @@ class ProfileScreen extends StatelessWidget {
                       children: List.generate(
                         5,
                         (index) => Icon(
-                          index < review['rating'] ? Icons.star : Icons.star_border,
+                          index < review['rating']
+                              ? Icons.star
+                              : Icons.star_border,
                           color: Colors.amber,
                           size: 20,
                         ),
@@ -121,13 +145,16 @@ class ProfileScreen extends StatelessWidget {
                 // Profil düzenleme ekranına yönlendiriyoruz
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ProfileEditScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => const ProfileEditScreen()),
                 );
               },
               icon: const Icon(Icons.edit),
               label: const Text('Profil Düzenle'),
               style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 35), backgroundColor: const Color.fromARGB(255, 153, 199, 212),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 20, horizontal: 35),
+                backgroundColor: const Color.fromARGB(255, 153, 199, 212),
               ),
             ),
           ],
@@ -136,7 +163,11 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _infoCard({required String title, required String value, IconData? icon, Color? iconColor}) {
+  Widget _infoCard(
+      {required String title,
+      required String value,
+      IconData? icon,
+      Color? iconColor}) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -147,14 +178,18 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(title, style: const TextStyle(fontSize: 16, color: Colors.black54)),
+            Text(title,
+                style: const TextStyle(fontSize: 16, color: Colors.black54)),
             const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   value,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                  style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87),
                 ),
                 if (icon != null) ...[
                   const SizedBox(width: 4),
@@ -175,7 +210,8 @@ class ProfileScreen extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(
           title,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: const TextStyle(
+              fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
         ),
       ),
     );

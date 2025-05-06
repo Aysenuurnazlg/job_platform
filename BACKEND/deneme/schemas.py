@@ -2,17 +2,18 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 
-# Ortak alanlar
+# ----------------------
+# Kullanıcı Şemaları
+# ----------------------
 class UserBase(BaseModel):
     email: str
     full_name: str
-    phone_number: str  # <-- eksik alan eklendi
+    phone_number: str
+    bio: Optional[str] = ""
 
-# Yeni kullanıcı oluşturma
 class UserCreate(UserBase):
     password: str
 
-# Veritabanından gelen kullanıcı
 class User(UserBase):
     id: int
     is_active: bool
@@ -21,7 +22,15 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
-# İş ilanları
+class UserUpdate(BaseModel):
+    full_name: str
+    email: str
+    phone_number: str
+    bio: str
+
+# ----------------------
+# İş İlanı Şemaları
+# ----------------------
 class JobBase(BaseModel):
     title: str
     description: str

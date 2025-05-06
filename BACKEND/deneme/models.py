@@ -2,6 +2,8 @@ from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Float, Date
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from database import Base
 import datetime
+from typing import List, Optional
+
 
 class User(Base):
     __tablename__ = "users"
@@ -11,6 +13,7 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255))
     full_name: Mapped[str] = mapped_column(String(100))
     phone_number: Mapped[str] = mapped_column(String(20)) 
+    bio: Mapped[Optional[str]] = mapped_column(String(255), default="") 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
 

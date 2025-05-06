@@ -26,7 +26,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
     if (_formKey.currentState!.validate() && selectedJobType != null) {
       _formKey.currentState!.save();
 
-      final url = Uri.parse("http://127.0.0.1:8000/jobs?owner_id=1"); // sabit owner_id
+      final url =
+          Uri.parse("http://127.0.0.1:8000/jobs?owner_id=1"); // sabit owner_id
       final jobData = {
         "title": selectedJobType,
         "description": description,
@@ -80,7 +81,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
         padding: const EdgeInsets.all(20),
         child: Card(
           elevation: 4,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Form(
@@ -92,12 +94,12 @@ class _PostJobScreenState extends State<PostJobScreen> {
                     items: jobTypes.map((type) {
                       return DropdownMenuItem(value: type, child: Text(type));
                     }).toList(),
-                    onChanged: (value) => setState(() => selectedJobType = value),
+                    onChanged: (value) =>
+                        setState(() => selectedJobType = value),
                     validator: (value) =>
                         value == null ? 'Lütfen iş türünü seçin' : null,
                   ),
                   const SizedBox(height: 20),
-
                   TextFormField(
                     decoration: _inputDecoration('Açıklama'),
                     maxLines: 3,
@@ -107,7 +109,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
                         : null,
                   ),
                   const SizedBox(height: 20),
-
                   TextFormField(
                     decoration: _inputDecoration('Ücret (₺)').copyWith(
                       prefixText: '₺ ',
@@ -119,7 +120,6 @@ class _PostJobScreenState extends State<PostJobScreen> {
                         : null,
                   ),
                   const SizedBox(height: 30),
-
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
