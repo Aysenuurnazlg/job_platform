@@ -5,9 +5,10 @@ import 'ProfileScreen.dart';
 import 'NotificationsScreen.dart';
 import 'settings_screen.dart';
 import 'postJob_screen.dart';
-import 'jobDetail_screen.dart';
+import 'job_detail_screen.dart';
 import 'loginscreen.dart';
 import 'register_screen.dart';
+import 'profile_edit_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -35,6 +36,7 @@ class MyApp extends StatelessWidget {
         '/settings': (context) => const SettingsScreen(),
         '/post-job': (context) => const PostJobScreen(),
         '/job-detail': (context) => const JobDetailScreen(),
+        '/profile-edit': (context) => const ProfileEditScreen(),
       },
     );
   }
