@@ -38,7 +38,8 @@ class _LoginScreenState extends State<LoginScreen> {
       final token = responseData['access_token'];
 
       if (token != null) {
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushReplacementNamed(context, '/home',
+            arguments: 1); // test için userId = 1
       } else {
         _showErrorDialog("Token alınamadı.");
       }

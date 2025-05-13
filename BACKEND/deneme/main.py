@@ -3,9 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
+
 from database import SessionLocal, engine
 import models, schemas, crud
 from auth import authenticate_user, create_access_token
+
+
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -49,10 +52,21 @@ def read_jobs(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 def create_job(job: schemas.JobCreate, owner_id: int = 1, db: Session = Depends(get_db)):
     return crud.create_job(db=db, job=job, owner_id=owner_id)
 
-@app.put("/users/{user_id}", response_model=schemas.User)
-def update_user(user_id: int, updated_user: schemas.UserBase, db: Session = Depends(get_db)):
-    db_user = crud.get_user_by_id(db, user_id)
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return crud.update_user(db, db_user, updated_user)
+@app.get("/jobs/{job_id}", response_model=schemas.Job)
+def get_job_detail(job_id: int, db: Session = Depends(get_db)):
+    db_job = crud.get_job(db, job_id=job_id)
+    if db_job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return db_job
 
+
+@app.post("/jobs/{job_id}/applications/", response_model=schemas.JobApplication)
+def create_job_application(job_id: int, application: schemas.JobApplicationCreate, db: Session = Depends(get_db)):
+    created_app = crud.create_job_application(db, job_id=job_id, application=application)
+    return schemas.JobApplication.from_orm(created_app)
+
+
+
+@app.get("/employer/{employer_id}/unread_applications")
+def unread_applications(employer_id: int, db: Session = Depends(get_db)):
+    return crud.get_unread_applications_for_employer(db, employer_id)

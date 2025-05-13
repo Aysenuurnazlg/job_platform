@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-import models
+import models  # ⬅ Relative yerine absolute import
 from passlib.context import CryptContext
 from jose import jwt
 from datetime import datetime, timedelta

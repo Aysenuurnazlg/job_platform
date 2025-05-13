@@ -1,7 +1,10 @@
 from sqlalchemy.orm import Session
-import models, schemas
+import schemas
+import models
+from models import JobApplication
 from passlib.context import CryptContext
 import datetime
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -59,3 +62,38 @@ def create_job(db: Session, job: schemas.JobCreate, owner_id: int):
 # Tüm iş ilanlarını getir
 def get_jobs(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Job).offset(skip).limit(limit).all()
+
+
+# get_job fonksiyonunu ekleyin
+def get_job(db: Session, job_id: int):
+    return db.query(models.Job).filter(models.Job.id == job_id).first()
+
+
+def create_job_application(db: Session, job_id: int, application: schemas.JobApplicationCreate):
+    db_application = JobApplication(
+        job_id=job_id,
+        user_id=application.user_id,
+        application_date=datetime.datetime.utcnow(),
+        is_read=False
+    )
+    db.add(db_application)
+    db.commit()
+    db.refresh(db_application)
+    return db_application
+
+
+
+
+# Okunmamış başvuruları getir
+def get_unread_applications_for_employer(db: Session, employer_id: int):
+    return db.query(models.JobApplication).join(models.Job).filter(
+        models.Job.owner_id == employer_id,
+        models.JobApplication.is_read == False
+    ).all()
+
+# Okundu olarak işaretle
+def mark_applications_as_read(db: Session, employer_id: int):
+    unread_apps = get_unread_applications_for_employer(db, employer_id)
+    for app in unread_apps:
+        app.is_read = True
+    db.commit()

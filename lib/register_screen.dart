@@ -14,44 +14,55 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _PasswordController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
   Future<void> _register() async {
+    if (_usernameController.text.isEmpty ||
+        _emailController.text.isEmpty ||
+        _phoneController.text.isEmpty ||
+        _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Lütfen tüm alanları doldurunuz.")),
+      );
+      return;
+    }
 
-     // Tüm alanlar için boşluk kontrolü
-  if (_usernameController.text.isEmpty ||
-      _emailController.text.isEmpty ||
-      _phoneController.text.isEmpty ||
-      _PasswordController.text.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Lütfen tüm alanları doldurunuz.")),
-    );
-    return;
-  }
-  
     final url = Uri.parse("http://127.0.0.1:8000/users/");
-    final response = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: json.encode({
-        "full_name": _usernameController.text,
-        "email": _emailController.text,
-        "phone_number": _phoneController.text,
-        "password": _PasswordController.text,
-      }),
-    );
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({
+          "full_name": _usernameController.text,
+          "email": _emailController.text,
+          "phone_number": _phoneController.text,
+          "password": _passwordController.text,
+        }),
+      );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
+      print("STATUS: ${response.statusCode}");
+      print("BODY: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text("Kayıt başarılı! Giriş yapabilirsiniz.")),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  "Sunucu hatası: ${response.statusCode}\n${response.body}")),
+        );
+      }
+    } catch (e) {
+      print("EXCEPTION: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Kayıt başarılı! Giriş yapabilirsiniz.")),
-      );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Hata: ${response.body}")),
+        SnackBar(content: Text("Bağlantı hatası oluştu: $e")),
       );
     }
   }
@@ -71,7 +82,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 gradient: LinearGradient(
                   colors: [
                     Color.fromARGB(255, 103, 144, 153),
-                    Color.fromARGB(255, 49, 71, 78)
+                    Color.fromARGB(255, 49, 71, 78),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -129,19 +140,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             const SizedBox(height: 20),
                             TextField(
-                              controller:_phoneController,
-                              obscureText: true,
+                              controller: _phoneController,
+                              keyboardType: TextInputType.phone,
                               style: const TextStyle(fontSize: 18),
                               decoration: const InputDecoration(
                                 labelText: 'Telefon Numarası',
-                                prefixIcon: Icon(Icons.lock),
+                                prefixIcon: Icon(Icons.phone),
                                 contentPadding:
                                     EdgeInsets.symmetric(vertical: 20),
                               ),
                             ),
                             const SizedBox(height: 20),
                             TextField(
-                              controller: _PasswordController,
+                              controller: _passwordController,
                               obscureText: true,
                               style: const TextStyle(fontSize: 18),
                               decoration: const InputDecoration(
@@ -165,9 +176,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               child: const Text(
                                 "Kayıt Ol",
                                 style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.white,
-                                ),
+                                    fontSize: 18, color: Colors.white),
                               ),
                             ),
                           ],
