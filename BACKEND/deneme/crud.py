@@ -4,6 +4,8 @@ import models
 from models import JobApplication
 from passlib.context import CryptContext
 import datetime
+from schemas import RatingCreate, Rating
+
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -97,3 +99,14 @@ def mark_applications_as_read(db: Session, employer_id: int):
     for app in unread_apps:
         app.is_read = True
     db.commit()
+
+
+def create_rating(db: Session, rating: RatingCreate):
+    db_rating = Rating(**rating.dict())
+    db.add(db_rating)
+    db.commit()
+    db.refresh(db_rating)
+    return db_rating
+
+def get_active_jobs(db: Session, employer_id: int):
+    return db.query(models.Job).filter(models.Job.owner_id == employer_id).all()

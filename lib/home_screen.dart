@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:badges/badges.dart' as badges;
+import 'notificationsScreen.dart';
 import 'ProfileScreen.dart';
 import 'job_detail_screen.dart';
 import 'loginscreen.dart';
+import 'active_jobsscreen.dart'; // 📌 Bu satırı ekle
 
 class HomeScreen extends StatefulWidget {
   final int userId;
@@ -16,6 +19,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List jobs = [];
   bool isLoading = true;
+  int unreadCount = 0; // 🔴 Bildirim sayacı
 
   @override
   void initState() {
@@ -26,7 +30,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> fetchJobs() async {
     final url = Uri.parse('http://127.0.0.1:8000/jobs/');
-
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -43,12 +46,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> checkUnreadApplications() async {
-    final url =
-        Uri.parse('http://127.0.0.1:8000/employer/1/unread_applications');
+    final url = Uri.parse(
+        'http://127.0.0.1:8000/employer/${widget.userId}/unread_applications');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final unreadList = json.decode(response.body);
+        setState(() {
+          unreadCount = unreadList.length;
+        });
+
         if (unreadList.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Yeni başvurularınız var!")),
@@ -68,9 +75,29 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: const Color.fromARGB(255, 103, 144, 153),
         title: const Text('Ana Sayfa'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () => Navigator.pushNamed(context, '/notifications'),
+          badges.Badge(
+            showBadge: unreadCount > 0,
+            position: badges.BadgePosition.topEnd(top: -4, end: -4),
+            badgeContent: Text(
+              unreadCount.toString(),
+              style: const TextStyle(color: Colors.white, fontSize: 10),
+            ),
+            badgeStyle: const badges.BadgeStyle(
+              badgeColor: Colors.red,
+              padding: EdgeInsets.all(6),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.notifications),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => NotificationsScreen(userId: widget.userId),
+                  ),
+                );
+                checkUnreadApplications(); // döndükten sonra tekrar kontrol edebilir
+              },
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.settings),
@@ -102,6 +129,14 @@ class _HomeScreenState extends State<HomeScreen> {
             }),
             _buildDrawerItem(Icons.work, 'İlan Ver', () {
               Navigator.pushNamed(context, '/post-job');
+            }),
+            _buildDrawerItem(Icons.list_alt, 'Aktif İlanlarım', () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MyActiveJobsScreen(employerId: widget.userId),
+                ),
+              );
             }),
             _buildDrawerItem(Icons.logout, 'Çıkış Yap', () {
               Navigator.push(context,

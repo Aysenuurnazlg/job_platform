@@ -7,7 +7,7 @@ import 'job_detail_screen.dart';
 import 'loginscreen.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
-import 'NotificationsScreen.dart';
+import 'notificationsScreen.dart';
 import 'settings_screen.dart';
 import 'postJob_screen.dart';
 import 'profile_edit_screen.dart';

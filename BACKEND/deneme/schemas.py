@@ -85,3 +85,22 @@ class JobApplicationCreate(BaseModel):
 
     class Config:
         validate_by_name = True
+
+
+class RatingCreate(BaseModel):
+    employer_id: int
+    worker_id: int
+    job_id: int
+    rating: int
+    comment: str = ""
+
+class Rating(BaseModel):
+    id: int
+    employer_id: int
+    worker_id: int
+    job_id: int
+    rating: int
+    comment: str
+
+    class Config:
+        orm_mode = True
