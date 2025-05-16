@@ -47,10 +47,8 @@ class Job(JobBase):
 
     class Config:
         from_attributes = True
+        orm_mode = True
 
-# ----------------------
-# İş Detayları
-# ----------------------
 class JobDetailBase(BaseModel):
     full_description: str
     requirements: str
