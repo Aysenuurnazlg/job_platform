@@ -7,8 +7,6 @@ from typing import List, Optional
 
 
 
-
-
 class User(Base):
     __tablename__ = "users"
 
@@ -68,5 +66,20 @@ class JobApplication(Base):
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
     application_date: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
-    user = relationship("User", back_populates="applications")
     job = relationship("Job", back_populates="applications")
+    user = relationship("User")
+
+class Rating(Base):
+    __tablename__ = "ratings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    employer_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    worker_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    job_id: Mapped[int] = mapped_column(Integer, ForeignKey("jobs.id"))
+    rating: Mapped[int] = mapped_column(Integer)
+    comment: Mapped[str] = mapped_column(String(1000), default="")
+
+    # İlişkiler isteğe bağlı olarak eklenebilir
+    employer = relationship("User", foreign_keys=[employer_id])
+    worker = relationship("User", foreign_keys=[worker_id])
+    job = relationship("Job")

@@ -60,13 +60,41 @@ def get_job_detail(job_id: int, db: Session = Depends(get_db)):
     return db_job
 
 
-@app.post("/jobs/{job_id}/applications/", response_model=schemas.JobApplication)
+@app.post("/jobs/{job_id}/applications", response_model=schemas.JobApplication)
 def create_job_application(job_id: int, application: schemas.JobApplicationCreate, db: Session = Depends(get_db)):
     created_app = crud.create_job_application(db, job_id=job_id, application=application)
     return schemas.JobApplication.from_orm(created_app)
 
 
-
 @app.get("/employer/{employer_id}/unread_applications")
-def unread_applications(employer_id: int, db: Session = Depends(get_db)):
-    return crud.get_unread_applications_for_employer(db, employer_id)
+def get_unread_applications(employer_id: int, db: Session = Depends(get_db)):
+    applications = db.query(models.JobApplication)\
+        .join(models.Job, models.Job.id == models.JobApplication.job_id)\
+        .join(models.User, models.User.id == models.JobApplication.user_id)\
+        .filter(models.Job.owner_id == employer_id, models.JobApplication.is_read == False)\
+        .order_by(models.JobApplication.application_date.desc())\
+        .all()
+
+    return [
+        {
+            "user_name": app.user.full_name,
+            "job_title": app.job.title,
+            "applicationDate": app.application_date.isoformat()
+        }
+        for app in applications
+    ]
+
+
+# main.py veya routes dosyana ekle
+@app.post("/employer/{employer_id}/mark_applications_read")
+def mark_all_applications_as_read(employer_id: int, db: Session = Depends(get_db)):
+    crud.mark_applications_as_read(db, employer_id)
+    return {"message": "Başvurular okundu olarak işaretlendi"}
+
+@app.get("/employer/{employer_id}/active_jobs")
+def get_active_jobs(employer_id: int, db: Session = Depends(get_db)):
+    return db.query(models.Job).filter(models.Job.owner_id == employer_id, models.Job.is_active == True).all()
+
+@app.post("/ratings/", response_model=schemas.Rating)
+def create_rating(rating: schemas.RatingCreate, db: Session = Depends(get_db)):
+    return crud.create_rating(db, rating)
