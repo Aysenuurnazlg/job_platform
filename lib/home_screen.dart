@@ -8,6 +8,8 @@ import 'job_detail_screen.dart';
 import 'loginscreen.dart';
 import 'active_jobsscreen.dart';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final int userId;
@@ -24,6 +26,34 @@ class _HomeScreenState extends State<HomeScreen> {
   int _unreadNotifications = 0;
   int _prevUnreadCount = 0;
   Timer? _notificationTimer;
+
+  Future<String> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('access_token') ?? '';
+  }
+
+  Future<Map<String, dynamic>> fetchProfileData(int id) async {
+    try {
+      final token = await getToken();
+      final url = 'http://127.0.0.1:8000/users/me';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception(
+            'Kullanıcı bilgileri alınamadı: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Profil bilgileri alınırken bir hata oluştu: $e');
+    }
+  }
 
   @override
   void initState() {
@@ -193,7 +223,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.pushNamed(context, '/settings'),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SettingsScreen(userId: widget.userId),
+              ),
+            ),
           ),
         ],
       ),
@@ -201,16 +236,57 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            const UserAccountsDrawerHeader(
-              accountName: Text("Kullanıcı Adı"),
-              accountEmail: Text("email@example.com"),
-              currentAccountPicture: CircleAvatar(
-                backgroundColor: Colors.white,
-                child: Icon(Icons.person, size: 40),
-              ),
-              decoration: BoxDecoration(
-                color: Color.fromARGB(255, 103, 144, 153),
-              ),
+            FutureBuilder<Map<String, dynamic>>(
+              future: fetchProfileData(widget.userId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const UserAccountsDrawerHeader(
+                    accountName: Text("Yükleniyor..."),
+                    accountEmail: Text(""),
+                    currentAccountPicture: CircleAvatar(
+                      backgroundColor: Colors.white,
+                      child: CircularProgressIndicator(),
+                    ),
+                    decoration: BoxDecoration(
+                      color: Color.fromARGB(255, 103, 144, 153),
+                    ),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return const UserAccountsDrawerHeader(
+                    accountName: Text("Hata"),
+                    accountEmail: Text("Bilgiler yüklenemedi"),
+                    currentAccountPicture: CircleAvatar(
+                      backgroundColor: Colors.white,
+                      child: Icon(Icons.error, size: 40),
+                    ),
+                    decoration: BoxDecoration(
+                      color: Color.fromARGB(255, 103, 144, 153),
+                    ),
+                  );
+                }
+
+                final profileData = snapshot.data!;
+                return UserAccountsDrawerHeader(
+                  accountName:
+                      Text(profileData['full_name'] ?? "İsimsiz Kullanıcı"),
+                  accountEmail: Text(profileData['email'] ?? ""),
+                  currentAccountPicture: CircleAvatar(
+                    backgroundColor: Colors.white,
+                    child: Text(
+                      (profileData['full_name'] ?? "?")
+                          .substring(0, 1)
+                          .toUpperCase(),
+                      style: const TextStyle(
+                          fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  decoration: const BoxDecoration(
+                    color: Color.fromARGB(255, 103, 144, 153),
+                  ),
+                );
+              },
             ),
             _buildDrawerItem(Icons.home, 'Ana Sayfa', () {
               Navigator.pop(context);

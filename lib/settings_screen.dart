@@ -3,9 +3,17 @@ import 'package:flutter/services.dart';
 import 'profile_edit_screen.dart'; // Profil düzenleme ekranını import edin
 import 'help_screen.dart';
 import 'about_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final int userId;
+
+  const SettingsScreen({
+    super.key,
+    required this.userId,
+  });
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -13,14 +21,68 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool isNotificationsEnabled = true;
+  Map<String, dynamic>? _userData;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('access_token');
+      print('Token: $token');
+
+      // API'den kullanıcı bilgilerini al
+      final response = await http.get(
+        Uri.parse('http://127.0.0.1:8000/users/me'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print('API Yanıt Kodu: ${response.statusCode}');
+      print('API Yanıtı: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final userData = json.decode(response.body);
+        setState(() {
+          _userData = {
+            'id': widget.userId,
+            'full_name': userData['full_name'],
+            'email': userData['email'],
+            'phone_number': userData['phone_number'],
+            'bio': userData['bio'],
+          };
+        });
+        print('Yüklenen kullanıcı verileri: $_userData');
+      } else {
+        print('API Hatası: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Veri yükleme hatası: $e');
+    }
+  }
 
   void _navigateToProfile() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-          builder: (context) =>
-              const ProfileEditScreen()), // Profil düzenlemeye yönlendir
-    );
+    if (_userData != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const ProfileEditScreen(),
+          settings: RouteSettings(arguments: _userData),
+        ),
+      ).then((_) => _loadUserData()); // Profil güncellendiğinde verileri yenile
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kullanıcı bilgileri yüklenemedi'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _navigateToLanguageSettings() {

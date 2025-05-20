@@ -67,7 +67,13 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
-        '/settings': (context) => const SettingsScreen(),
+        '/settings': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is int) {
+            return SettingsScreen(userId: args);
+          }
+          return const LoginScreen(); // Eğer userId yoksa login ekranına yönlendir
+        },
         '/profile': (context) => const ProfileScreen(
             userId: 1, isOwnProfile: true), // örnek değerler
         '/': (context) => const RegisterScreen(),
