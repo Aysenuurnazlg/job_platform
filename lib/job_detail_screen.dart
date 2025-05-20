@@ -2,26 +2,42 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'application.success.dart';
 import 'config.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+Future<String?> getToken() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getString('access_token');
+}
 
 Future<int> submitApplication(int jobId, int userId) async {
-  final response = await http.post(
-    Uri.parse(ApiConfig.jobApplicationUrl(jobId)),
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: jsonEncode({"userId": 1}),
-  );
+  try {
+    final token = await getToken(); // Token'ı al
+    if (token == null) {
+      throw Exception('Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.');
+    }
 
-  if (response.statusCode == 200 || response.statusCode == 201) {
-    final responseData = jsonDecode(response.body);
-    return responseData['id'];
-  } else {
-    final errorResponse = jsonDecode(response.body);
-    throw Exception(
-        'Başvuru gönderilemedi: ${errorResponse['detail'] ?? 'Bilinmeyen hata'}');
+    final response = await http.post(
+      Uri.parse(Config.jobApplicationUrl(jobId)),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token'
+      },
+      body: jsonEncode({"user_id": userId}),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final responseData = jsonDecode(response.body);
+      return responseData['id'];
+    } else {
+      final errorResponse = jsonDecode(response.body);
+      throw Exception(
+          'Başvuru gönderilemedi: ${errorResponse['detail'] ?? 'Bilinmeyen hata (${response.statusCode})'}');
+    }
+  } catch (e) {
+    print('Başvuru hatası: $e'); // Hata ayıklama için
+    rethrow;
   }
 }
 
@@ -36,21 +52,34 @@ class JobDetailScreenState extends State<JobDetailScreen> {
   Map<String, dynamic>? jobDetails;
   bool isLoading = true;
   late int jobId;
-  late int userId;
+  int? userId;
 
   @override
-  void didChangeDependencies() {
+  void didChangeDependencies() async {
     super.didChangeDependencies();
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     jobId = args?['jobId'];
-    userId = args?['userId'] ?? 1;
+
+    // Kullanıcı ID'sini SharedPreferences'dan al
+    final prefs = await SharedPreferences.getInstance();
+    userId = prefs.getInt('user_id');
+
+    if (userId == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.')),
+      );
+      Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
 
     fetchJobDetail(jobId);
   }
 
   Future<void> fetchJobDetail(int jobId) async {
-    final url = Uri.parse(ApiConfig.jobDetailUrl(jobId));
+    final url = Uri.parse(Config.jobDetailUrl(jobId));
 
     try {
       final response = await http.get(
@@ -80,16 +109,74 @@ class JobDetailScreenState extends State<JobDetailScreen> {
 
   void applyToJob() async {
     try {
-      final applicationId = await submitApplication(jobId, userId);
+      await submitApplication(jobId, userId!);
 
       if (!mounted) return;
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              ApplicationSuccessScreen(applicationId: applicationId),
-        ),
+      // Başarılı başvuru dialog'u
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.check_circle,
+                    color: Colors.green,
+                    size: 80,
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Başvurunuz Başarıyla Gönderildi!',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 15),
+                  const Text(
+                    'İşveren başvurunuzu değerlendirdikten sonra size dönüş yapacaktır.',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 25),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(); // Dialog'u kapat
+                      Navigator.of(context).pop(); // İlan detay sayfasını kapat
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF679099),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 40, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    child: const Text(
+                      'Tamam',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       );
     } catch (e) {
       if (!mounted) return;
@@ -106,7 +193,14 @@ class JobDetailScreenState extends State<JobDetailScreen> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
       );
     }
   }

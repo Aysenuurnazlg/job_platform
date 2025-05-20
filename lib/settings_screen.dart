@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'profile_edit_screen.dart';  // Profil düzenleme ekranını import edin
+import 'profile_edit_screen.dart'; // Profil düzenleme ekranını import edin
 import 'help_screen.dart';
 import 'about_screen.dart';
-
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -18,7 +17,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _navigateToProfile() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const ProfileEditScreen()), // Profil düzenlemeye yönlendir
+      MaterialPageRoute(
+          builder: (context) =>
+              const ProfileEditScreen()), // Profil düzenlemeye yönlendir
     );
   }
 
@@ -68,20 +69,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _navigateToHelp() {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (context) => const HelpScreen()),
-  );
-}
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const HelpScreen()),
+    );
+  }
 
-void _navigateToAbout() {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (context) => const AboutScreen()),
-  );
-}
-
-
+  void _navigateToAbout() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AboutScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,11 +92,13 @@ void _navigateToAbout() {
           children: [
             // Profil düzenleme card
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               child: ListTile(
                 leading: const Icon(Icons.person),
                 title: const Text('Profil Düzenle'),
-                subtitle: const Text('Bilgilerinizi görüntüleyin veya değiştirin'),
+                subtitle:
+                    const Text('Bilgilerinizi görüntüleyin veya değiştirin'),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: _navigateToProfile, // Profil düzenlemeye yönlendir
               ),
@@ -106,7 +107,8 @@ void _navigateToAbout() {
 
             // Notification toggle
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               child: SwitchListTile(
                 secondary: const Icon(Icons.notifications),
                 title: const Text('Bildirimler'),
@@ -118,7 +120,8 @@ void _navigateToAbout() {
 
             // Help and Support
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               child: ListTile(
                 leading: const Icon(Icons.help),
                 title: const Text('Yardım ve Destek'),
@@ -129,7 +132,8 @@ void _navigateToAbout() {
 
             // About
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               child: ListTile(
                 leading: const Icon(Icons.info),
                 title: const Text('Hakkında'),
@@ -140,7 +144,8 @@ void _navigateToAbout() {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Çıkış Yap', style: TextStyle(color: Colors.red)),
+              title:
+                  const Text('Çıkış Yap', style: TextStyle(color: Colors.red)),
               onTap: () => _confirmLogout(context),
             ),
           ],

@@ -1,15 +1,20 @@
-class ApiConfig {
-  static const String baseUrl = 'http://127.0.0.1:8000';
+class Config {
+  static const String apiUrl = 'http://127.0.0.1:8000';
 
-  // Auth endpoints
-  static String get tokenUrl => '$baseUrl/token';
+  // Auth
+  static String get tokenUrl => '$apiUrl/token';
 
-  // Job endpoints
-  static String get jobsUrl => '$baseUrl/jobs';
+  // User
+  static String get meUrl => '$apiUrl/users/me'; // Güncelledik!
+  static String get usersUrl => '$apiUrl/users';
+  static String userDetailUrl(int id) => '$usersUrl/$id';
+
+  // Job
+  static String get jobsUrl => '$apiUrl/jobs';
   static String jobDetailUrl(int id) => '$jobsUrl/$id';
   static String jobApplicationUrl(int jobId) => '$jobsUrl/$jobId/applications';
 
-  // User endpoints
-  static String get usersUrl => '$baseUrl/users';
-  static String userDetailUrl(int id) => '$usersUrl/$id';
+  static Map<String, String> get headers => {
+        'Content-Type': 'application/json',
+      };
 }

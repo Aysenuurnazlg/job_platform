@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'register_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'register_screen.dart';
+import 'config.dart'; // api_config olarak isimlendirdim
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,56 +13,79 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController(); // <-- düzeltildi
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
 
   Future<void> _login() async {
-    final email = _usernameController.text;
-    final password = _passwordController.text;
+    if (!_formKey.currentState!.validate()) return;
 
-    // Backend olmadan kontrol
-    if (email == 'admin' && password == '1234') {
-      Navigator.pushReplacementNamed(context, '/home');
-      return;
-    }
+    setState(() => _isLoading = true);
 
-    final response = await http.post(
-      Uri.parse('http://127.0.0.1:8000/token'),
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: {
-        'username': email,
-        'password': password,
-      },
-    );
+    try {
+      final response = await http.post(
+        Uri.parse(Config.tokenUrl),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: {
+          'username': _usernameController.text,
+          'password': _passwordController.text,
+        },
+      );
 
-    if (response.statusCode == 200) {
-      final responseData = jsonDecode(response.body);
-      final token = responseData['access_token'];
+      print("LOGIN RESPONSE STATUS: ${response.statusCode}");
+      print("LOGIN RESPONSE BODY: ${response.body}");
 
-      if (token != null) {
-        Navigator.pushReplacementNamed(context, '/home',
-            arguments: 1); // test için userId = 1
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final token = data['access_token'];
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('access_token', token);
+
+        final userResponse = await http.get(
+          Uri.parse('${Config.meUrl}'),
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        );
+
+        print("ME RESPONSE STATUS: ${userResponse.statusCode}");
+        print("ME RESPONSE BODY: ${userResponse.body}");
+
+        if (userResponse.statusCode == 200) {
+          final userData = jsonDecode(userResponse.body);
+          await prefs.setInt('user_id', userData['id']);
+
+          if (!mounted) return;
+          Navigator.pushReplacementNamed(
+            context,
+            '/home',
+            arguments: userData['id'],
+          );
+        } else {
+          throw Exception('Kullanıcı bilgileri alınamadı');
+        }
+      } else if (response.statusCode == 401) {
+        _showError('Geçersiz e-posta veya şifre.');
       } else {
-        _showErrorDialog("Token alınamadı.");
+        _showError('Giriş başarısız. Lütfen bilgilerinizi kontrol edin.');
       }
-    } else {
-      _showErrorDialog("Kullanıcı adı veya şifre yanlış.");
+    } catch (e) {
+      _showError('Bağlantı hatası: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Giriş Başarısız"),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Tamam"),
-          ),
-        ],
-      ),
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 
@@ -111,164 +136,59 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          children: [
-                            TextField(
-                              controller: _usernameController,
-                              style: const TextStyle(fontSize: 18),
-                              decoration: const InputDecoration(
-                                labelText: 'E-Posta',
-                                prefixIcon: Icon(Icons.person),
-                                contentPadding:
-                                    EdgeInsets.symmetric(vertical: 20),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            children: [
+                              TextFormField(
+                                controller: _usernameController,
+                                validator: (value) =>
+                                    value!.isEmpty ? 'E-posta giriniz' : null,
+                                decoration: const InputDecoration(
+                                  labelText: 'E-Posta',
+                                  prefixIcon: Icon(Icons.person),
+                                  contentPadding:
+                                      EdgeInsets.symmetric(vertical: 20),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 20),
-                            TextField(
-                              controller: _passwordController,
-                              obscureText: true,
-                              style: const TextStyle(fontSize: 18),
-                              decoration: const InputDecoration(
-                                labelText: 'Şifre',
-                                prefixIcon: Icon(Icons.lock),
-                                contentPadding:
-                                    EdgeInsets.symmetric(vertical: 20),
+                              const SizedBox(height: 20),
+                              TextFormField(
+                                controller: _passwordController,
+                                obscureText: true,
+                                validator: (value) =>
+                                    value!.isEmpty ? 'Şifre giriniz' : null,
+                                decoration: const InputDecoration(
+                                  labelText: 'Şifre',
+                                  prefixIcon: Icon(Icons.lock),
+                                  contentPadding:
+                                      EdgeInsets.symmetric(vertical: 20),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 16),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: () {
-                                  final TextEditingController emailController =
-                                      TextEditingController();
-                                  final TextEditingController
-                                      newPasswordController =
-                                      TextEditingController();
-                                  final TextEditingController
-                                      confirmPasswordController =
-                                      TextEditingController();
-
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text("Şifre Yenileme"),
-                                      content: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          TextField(
-                                            controller: emailController,
-                                            keyboardType:
-                                                TextInputType.emailAddress,
-                                            decoration: const InputDecoration(
-                                              labelText:
-                                                  "E-posta adresinizi girin",
-                                            ),
-                                          ),
-                                          const SizedBox(height: 10),
-                                          TextField(
-                                            controller: newPasswordController,
-                                            obscureText: true,
-                                            decoration: const InputDecoration(
-                                              labelText: "Yeni şifre oluşturun",
-                                            ),
-                                          ),
-                                          const SizedBox(height: 10),
-                                          TextField(
-                                            controller:
-                                                confirmPasswordController,
-                                            obscureText: true,
-                                            decoration: const InputDecoration(
-                                              labelText: "Şifreyi tekrar girin",
-                                            ),
-                                          ),
-                                        ],
+                              const SizedBox(height: 20),
+                              ElevatedButton(
+                                onPressed: _isLoading ? null : _login,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      const Color.fromARGB(255, 103, 144, 153),
+                                  minimumSize: const Size(double.infinity, 55),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: _isLoading
+                                    ? const CircularProgressIndicator(
+                                        color: Colors.white,
+                                      )
+                                    : const Text(
+                                        "Giriş Yap",
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          color: Colors.white,
+                                        ),
                                       ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context),
-                                          child: const Text("İptal"),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            String email =
-                                                emailController.text.trim();
-                                            String newPassword =
-                                                newPasswordController.text;
-                                            String confirmPassword =
-                                                confirmPasswordController.text;
-
-                                            // Şifrelerin uyuşup uyuşmadığını kontrol et
-                                            if (newPassword !=
-                                                confirmPassword) {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                      "Girilen şifreler uyuşmuyor!"),
-                                                ),
-                                              );
-                                              return;
-                                            }
-
-                                            // Güçlü şifre kontrolü (en az 6 karakter, en az bir rakam içermeli)
-                                            RegExp passwordRegex =
-                                                RegExp(r'^(?=.*\d).{6,}$');
-                                            if (!passwordRegex
-                                                .hasMatch(newPassword)) {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    "Şifre çok zayıf! Şifrenizde en az 6 karakter ve bir rakam bulunmalıdır.",
-                                                  ),
-                                                ),
-                                              );
-                                              return;
-                                            }
-
-                                            // Şifre doğrulaması başarılı, işlemi gerçekleştir
-                                            Navigator.pop(context);
-
-                                            // Burada gerçek şifre güncelleme işlemi yapılabilir
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                    "Yeni şifre belirlendi: $newPassword\n(E-posta: $email)"),
-                                              ),
-                                            );
-                                          },
-                                          child: const Text("Kaydet"),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                                child: const Text("Şifremi unuttum"),
                               ),
-                            ),
-                            const SizedBox(height: 20),
-                            ElevatedButton(
-                              onPressed: _login,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    const Color.fromARGB(255, 103, 144, 153),
-                                minimumSize: const Size(double.infinity, 55),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Text(
-                                "Giriş Yap",
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),

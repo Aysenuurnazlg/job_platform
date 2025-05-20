@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PostJobScreen extends StatefulWidget {
-  const PostJobScreen({super.key});
+  final int userId;
+  const PostJobScreen({super.key, required this.userId});
 
   @override
   State<PostJobScreen> createState() => _PostJobScreenState();
@@ -16,13 +18,27 @@ class _PostJobScreenState extends State<PostJobScreen> {
   String fee = '';
   String location = '';
   DateTime? selectedDateTime;
+  String? _token;
 
   final List<String> jobTypes = [
-    'Eczane',
-    'Market',
-    'Ev Temizligi',
-    'Refakatci',
+    'Eczaneye gitme',
+    'Markete gitme',
+    'Ev Temizliği',
+    'Refakatçi',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadToken();
+  }
+
+  Future<void> _loadToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _token = prefs.getString('access_token');
+    });
+  }
 
   Future<void> _pickDateTime() async {
     final date = await showDatePicker(
@@ -58,7 +74,16 @@ class _PostJobScreenState extends State<PostJobScreen> {
         selectedDateTime != null) {
       _formKey.currentState!.save();
 
-      final url = Uri.parse("http://127.0.0.1:8000/jobs/?owner_id=1");
+      if (_token == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+                  Text('Oturum süreniz dolmuş. Lütfen tekrar giriş yapın.')),
+        );
+        return;
+      }
+
+      final url = Uri.parse("http://127.0.0.1:8000/jobs/");
 
       final jobData = {
         "title": selectedJobType,
@@ -71,20 +96,16 @@ class _PostJobScreenState extends State<PostJobScreen> {
         final response = await http.post(
           url,
           headers: {
-            "Content-Type": "application/json; charset=utf-8"
-          }, // UTF-8 kodlaması
-          body: jsonEncode(
-              jobData), // utf8.encode olmadan da bazen düzgün çalışır
+            "Content-Type": "application/json; charset=utf-8",
+            "Authorization": "Bearer $_token"
+          },
+          body: jsonEncode(jobData),
         );
-
-        final decodedResponse = utf8.decode(response.bodyBytes);
 
         if (response.statusCode == 200 || response.statusCode == 201) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text(
-                    'Gönderdiğiniz ilan inceleme aşamasına alındı. Onaylandıktan sonra yayında olacaktır.')),
+            const SnackBar(content: Text('İlanınız başarıyla oluşturuldu.')),
           );
           Navigator.pop(context);
         } else {

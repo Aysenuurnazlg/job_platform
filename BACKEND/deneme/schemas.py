@@ -21,12 +21,45 @@ class User(UserBase):
 
     class Config:
         from_attributes = True
+        orm_mode = True
+
+class ReviewOut(BaseModel):
+    name: str
+    comment: str
+    rating: int
+    date: str
+
+class UserProfileOut(BaseModel):
+    id: int
+    full_name: str
+    email: str
+    phone_number: str
+    bio: Optional[str]
+    rating: float
+    completed_jobs: Optional[int] = None
+    job_types: List[str]
+    reviews: List[ReviewOut]
+
+    class Config:
+        from_attributes = True
+        orm_mode = True
+
+class UserResponse(BaseModel):
+    id: int
+    full_name: str
+    email: str
+    phone_number: str
+    bio: Optional[str]
+    
+    class Config:
+        from_attributes = True
+        orm_mode = True
 
 class UserUpdate(BaseModel):
     full_name: str
     email: str
     phone_number: str
-    bio: str
+    bio: Optional[str] = None
 
 # ----------------------
 # İş İlanı Şemaları
@@ -64,25 +97,27 @@ class JobDetail(JobDetailBase):
 
     class Config:
         from_attributes = True
+        orm_mode = True
 
 # ----------------------
 # Başvuru Şemaları
 # ----------------------
 class JobApplication(BaseModel):
     id: int
-    user_id: int = Field(..., alias="userId")
-    application_date: datetime = Field(..., alias="applicationDate")
+    user_id: int
+    application_date: datetime
     job_id: int
 
     class Config:
         from_attributes = True
-        validate_by_name = True
+        orm_mode = True
 
 class JobApplicationCreate(BaseModel):
-    user_id: int = Field(..., alias="userId")
+    user_id: int
 
     class Config:
-        validate_by_name = True
+        from_attributes = True
+        orm_mode = True
 
 
 class RatingCreate(BaseModel):
@@ -91,6 +126,7 @@ class RatingCreate(BaseModel):
     job_id: int
     rating: int
     comment: str = ""
+    receiver_id: Optional[int] = None
 
 class Rating(BaseModel):
     id: int
@@ -99,6 +135,8 @@ class Rating(BaseModel):
     job_id: int
     rating: int
     comment: str
+    receiver_id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+        orm_mode = True  # ORM nesnelerinden veri almak için gerekli

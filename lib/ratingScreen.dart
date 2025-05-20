@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class RateWorkerScreen extends StatefulWidget {
   final int employerId;
@@ -21,13 +24,53 @@ class RateWorkerScreen extends StatefulWidget {
 class _RateWorkerScreenState extends State<RateWorkerScreen> {
   int rating = 5;
   final TextEditingController commentController = TextEditingController();
+  bool isSubmitting = false;
+
+  Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('access_token');
+  }
 
   void submitRating() async {
-    // API isteği buraya eklenebilir
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Değerlendirme gönderildi.")),
+    setState(() => isSubmitting = true);
+    final token = await getToken();
+
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text("Oturum süresi dolmuş. Lütfen tekrar giriş yapın.")),
+      );
+      return;
+    }
+
+    final response = await http.post(
+      Uri.parse("http://127.0.0.1:8000/ratings/"),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'employer_id': widget.employerId,
+        'worker_id': widget.workerId,
+        'job_id': widget.jobId,
+        'rating': rating,
+        'comment': commentController.text.trim(),
+        'receiver_id': widget.workerId,
+      }),
     );
-    Navigator.pop(context);
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Değerlendirme gönderildi.")),
+      );
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Hata: ${response.body}")),
+      );
+    }
+
+    setState(() => isSubmitting = false);
   }
 
   @override
@@ -49,7 +92,8 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
             Center(
               child: Text(
                 widget.workerName,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 24),
@@ -85,7 +129,7 @@ class _RateWorkerScreenState extends State<RateWorkerScreen> {
             ),
             const SizedBox(height: 30),
             ElevatedButton.icon(
-              onPressed: submitRating,
+              onPressed: isSubmitting ? null : submitRating,
               icon: const Icon(Icons.send),
               label: const Text("Değerlendirmeyi Gönder"),
               style: ElevatedButton.styleFrom(

@@ -6,10 +6,12 @@ import 'notificationsScreen.dart';
 import 'ProfileScreen.dart';
 import 'job_detail_screen.dart';
 import 'loginscreen.dart';
-import 'active_jobsscreen.dart'; // 📌 Bu satırı ekle
+import 'active_jobsscreen.dart';
+import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
   final int userId;
+
   const HomeScreen({super.key, required this.userId});
 
   @override
@@ -17,24 +19,38 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List jobs = [];
+  List<dynamic> jobs = [];
   bool isLoading = true;
-  int unreadCount = 0; // 🔴 Bildirim sayacı
+  int _unreadNotifications = 0;
+  int _prevUnreadCount = 0;
+  Timer? _notificationTimer;
 
   @override
   void initState() {
     super.initState();
     fetchJobs();
-    checkUnreadApplications();
+    fetchUnreadNotifications();
+    _notificationTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      fetchUnreadNotifications();
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> fetchJobs() async {
     final url = Uri.parse('http://127.0.0.1:8000/jobs/');
     try {
       final response = await http.get(url);
+      final utf8Body = utf8.decode(response.bodyBytes);
+      final data = json.decode(utf8Body);
+
       if (response.statusCode == 200) {
         setState(() {
-          jobs = json.decode(response.body);
+          jobs = data;
           isLoading = false;
         });
       } else {
@@ -45,26 +61,98 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> checkUnreadApplications() async {
-    final url = Uri.parse(
-        'http://127.0.0.1:8000/employer/${widget.userId}/unread_applications');
+  Future<void> fetchUnreadNotifications() async {
     try {
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final unreadList = json.decode(response.body);
-        setState(() {
-          unreadCount = unreadList.length;
-        });
+      final response = await http.get(
+        Uri.parse(
+            'http://127.0.0.1:8000/employer/${widget.userId}/notifications'),
+      );
 
-        if (unreadList.isNotEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Yeni başvurularınız var!")),
-          );
+      if (response.statusCode == 200) {
+        final List<dynamic> notifications = json.decode(response.body);
+        final unreadCount = notifications.where((n) => !n['is_read']).length;
+
+        if (mounted) {
+          setState(() {
+            _unreadNotifications = unreadCount;
+          });
+
+          if (unreadCount > _prevUnreadCount) {
+            _showTopNotification(unreadCount);
+          }
+
+          _prevUnreadCount = unreadCount;
         }
       }
     } catch (e) {
-      debugPrint('Bildirim kontrol hatası: $e');
+      // Hata durumunda sessizce devam et
     }
+  }
+
+  void _showTopNotification(int count) {
+    final overlay = Overlay.of(context);
+    late final OverlayEntry overlayEntry;
+
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 0,
+        left: 0,
+        right: 0,
+        child: Material(
+          color: Colors.transparent,
+          child: AnimatedSlide(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            offset: const Offset(0, 0),
+            child: Container(
+              margin: const EdgeInsets.all(8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.blue,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.notifications_active, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '$count yeni bildiriminiz var!',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () {
+                      overlayEntry.remove();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay.insert(overlayEntry);
+
+    // 3 saniye sonra bildirimi kaldır
+    Future.delayed(const Duration(seconds: 3), () {
+      if (overlayEntry.mounted) {
+        overlayEntry.remove();
+      }
+    });
   }
 
   @override
@@ -76,26 +164,30 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Ana Sayfa'),
         actions: [
           badges.Badge(
-            showBadge: unreadCount > 0,
-            position: badges.BadgePosition.topEnd(top: -4, end: -4),
+            showBadge: _unreadNotifications > 0,
             badgeContent: Text(
-              unreadCount.toString(),
-              style: const TextStyle(color: Colors.white, fontSize: 10),
+              '$_unreadNotifications',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold),
             ),
-            badgeStyle: const badges.BadgeStyle(
+            badgeStyle: badges.BadgeStyle(
               badgeColor: Colors.red,
-              padding: EdgeInsets.all(6),
+              padding: const EdgeInsets.all(5),
+              borderRadius: BorderRadius.circular(10),
             ),
+            position: badges.BadgePosition.topEnd(top: 4, end: 4),
             child: IconButton(
-              icon: const Icon(Icons.notifications),
-              onPressed: () async {
-                await Navigator.push(
+              icon: const Icon(Icons.notifications, size: 28),
+              onPressed: () {
+                Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => NotificationsScreen(userId: widget.userId),
+                    builder: (context) =>
+                        NotificationsScreen(userId: widget.userId),
                   ),
-                );
-                checkUnreadApplications(); // döndükten sonra tekrar kontrol edebilir
+                ).then((_) => fetchUnreadNotifications());
               },
             ),
           ),
@@ -124,13 +216,25 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(context);
             }),
             _buildDrawerItem(Icons.person, 'Profilim', () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const ProfileScreen()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ProfileScreen(
+                    userId: widget.userId,
+                    isOwnProfile: true,
+                  ),
+                ),
+              );
             }),
-            _buildDrawerItem(Icons.work, 'İlan Ver', () {
-              Navigator.pushNamed(context, '/post-job');
+            _buildDrawerItem(Icons.work, 'İlan Ver', () async {
+              await Navigator.pushNamed(
+                context,
+                '/post-job',
+                arguments: widget.userId,
+              );
+              fetchJobs();
             }),
-            _buildDrawerItem(Icons.list_alt, 'Aktif İlanlarım', () {
+            _buildDrawerItem(Icons.list_alt, 'İlanlarım', () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -139,8 +243,10 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             }),
             _buildDrawerItem(Icons.logout, 'Çıkış Yap', () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              );
             }),
           ],
         ),
@@ -161,7 +267,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.pushNamed(context, '/post-job'),
+        onPressed: () async {
+          await Navigator.pushNamed(
+            context,
+            '/post-job',
+            arguments: widget.userId,
+          );
+          fetchJobs();
+        },
         icon: const Icon(Icons.add),
         label: const Text('İlan Ver'),
         backgroundColor: const Color.fromARGB(255, 103, 144, 153),
@@ -198,8 +311,10 @@ class _HomeScreenState extends State<HomeScreen> {
         trailing: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text("₺${job['salary']?.toStringAsFixed(0) ?? '0'}",
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              "₺${job['salary']?.toStringAsFixed(0) ?? '0'}",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             ElevatedButton(
               onPressed: () {

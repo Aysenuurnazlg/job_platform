@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileEditScreen extends StatefulWidget {
   const ProfileEditScreen({super.key});
@@ -12,11 +13,11 @@ class ProfileEditScreen extends StatefulWidget {
 class _ProfileEditScreenState extends State<ProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
   String _userId = '';
-  String _name = '';
-  String _email = '';
-  String _phone = '';
-  String _bio = '';
-  bool _notificationsEnabled = true;
+
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _bioController = TextEditingController();
 
   @override
   void didChangeDependencies() {
@@ -24,60 +25,174 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args != null && args is Map<String, dynamic>) {
       _userId = args['id'].toString();
-      _name = args['full_name'] ?? '';
-      _email = args['email'] ?? '';
-      _phone = args['phone_number'] ?? '';
-      _bio = args['bio'] ?? '';
-    } else {
-      // ❗ Geçici varsayılan veriler — test için
-      debugPrint(
-          'Uyarı: arguments boş veya geçersiz! Sahte veri kullanılıyor.');
-      _userId = '0';
-      _name = 'Deneme Kullanıcı';
-      _email = 'deneme@example.com';
-      _phone = '5551234567';
-      _bio = 'Bu bir test biyografisidir.';
+      _nameController.text = args['full_name'] ?? '';
+      _emailController.text = args['email'] ?? '';
+      _phoneController.text = args['phone_number'] ?? '';
+      _bioController.text = args['bio'] ?? '';
     }
+  }
+
+  Future<String> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('access_token') ?? '';
   }
 
   Future<void> _saveProfile() async {
     if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
+      final token = await getToken();
+      print('Mevcut token: $token');
 
       final url = Uri.parse('http://127.0.0.1:8000/users/$_userId');
 
       try {
+        print('Gönderilen veriler:');
+        final requestBody = {
+          "email": _emailController.text,
+          "full_name": _nameController.text,
+          "phone_number": _phoneController.text,
+          "bio": _bioController.text.isEmpty ? null : _bioController.text,
+        };
+        print(requestBody);
+
         final response = await http.put(
           url,
-          headers: {"Content-Type": "application/json"},
-          body: json.encode({
-            "email": _email,
-            "full_name": _name,
-            "phone_number": _phone,
-            "bio": _bio,
-          }),
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer $token",
+          },
+          body: json.encode(requestBody),
         );
 
         if (!mounted) return;
 
-        if (response.statusCode == 200) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profil başarıyla güncellendi')),
-          );
-          Navigator.pop(
-              context, true); // Profil ekranını yenilemek için true döndür
+        print('Backend yanıtı:');
+        print('Status Code: ${response.statusCode}');
+        print('Response Headers: ${response.headers}');
+        print('Response Body: ${response.body}');
+
+        final responseData = json.decode(response.body);
+        final prefs = await SharedPreferences.getInstance();
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          bool updateSuccess = false;
+
+          // Token ve kullanıcı bilgilerini güncelle
+          if (responseData is Map) {
+            try {
+              // Yeni token varsa güncelle
+              if (responseData.containsKey('access_token')) {
+                final newToken = responseData['access_token'];
+                print('Yeni token alındı: $newToken');
+                await prefs.setString('access_token', newToken);
+
+                // Token'ın kaydedildiğini kontrol et
+                final savedToken = await prefs.getString('access_token');
+                print('Kaydedilen yeni token: $savedToken');
+
+                if (savedToken != newToken) {
+                  throw Exception('Token kaydedilemedi');
+                }
+              } else {
+                print('Yanıtta yeni token bulunamadı');
+              }
+
+              // Kullanıcı bilgilerini güncelle
+              final userData = responseData['user'] ?? responseData;
+              print('Güncellenecek kullanıcı verileri: $userData');
+
+              // Önce tüm değerleri kontrol et
+              final email = userData['email'] ?? _emailController.text;
+              final fullName = userData['full_name'] ?? _nameController.text;
+              final phoneNumber =
+                  userData['phone_number'] ?? _phoneController.text;
+              final bio = userData['bio'] ?? _bioController.text;
+
+              // Sonra kaydet
+              await prefs.setString('email', email);
+              await prefs.setString('full_name', fullName);
+              await prefs.setString('phone_number', phoneNumber);
+              await prefs.setString('bio', bio);
+
+              // Değerlerin doğru kaydedildiğini kontrol et
+              final savedEmail = await prefs.getString('email');
+              final savedToken = await prefs.getString('access_token');
+
+              print('Kaydedilen email: $savedEmail');
+              print('Son durumda token: $savedToken');
+
+              if (savedEmail != null && savedToken != null) {
+                updateSuccess = true;
+              } else {
+                print('Email veya token kaydedilemedi');
+                print('Email null mu: ${savedEmail == null}');
+                print('Token null mu: ${savedToken == null}');
+              }
+            } catch (e) {
+              print('SharedPreferences güncelleme hatası: $e');
+              print('Hata detayı: ${e.toString()}');
+            }
+          } else {
+            print('Response data Map değil: $responseData');
+          }
+
+          if (updateSuccess) {
+            // Token'ı son kez kontrol et
+            final finalToken = await prefs.getString('access_token');
+            print('Son token kontrolü: $finalToken');
+
+            if (finalToken == null || finalToken.isEmpty) {
+              throw Exception('Token güncellenemedi');
+            }
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Profil başarıyla güncellendi'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            Navigator.pop(context, true);
+          } else {
+            throw Exception('Profil bilgileri güncellenemedi');
+          }
         } else {
+          String errorMessage = 'Bir hata oluştu';
+          if (responseData is Map) {
+            if (responseData.containsKey('detail')) {
+              errorMessage = responseData['detail'];
+            } else if (responseData.containsKey('message')) {
+              errorMessage = responseData['message'];
+            }
+          }
+
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Hata: ${response.body}')),
+            SnackBar(
+              content: Text('Hata: $errorMessage'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
           );
         }
       } catch (e) {
+        print('Hata detayı: $e');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Bağlantı hatası: $e')),
+          SnackBar(
+            content: Text('Bağlantı hatası: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _bioController.dispose();
+    super.dispose();
   }
 
   @override
@@ -85,6 +200,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profil Düzenle'),
+        backgroundColor: const Color.fromARGB(255, 103, 144, 153),
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.save),
@@ -97,65 +214,57 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const CircleAvatar(
-                child: Icon(Icons.camera_alt, size: 50, color: Colors.white),
+                radius: 40,
+                child: Icon(Icons.camera_alt, size: 40),
               ),
               const SizedBox(height: 16),
               TextFormField(
-                initialValue: _name,
+                controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Ad Soyad'),
                 validator: (value) =>
                     value == null || value.isEmpty ? 'Ad boş olamaz' : null,
-                onSaved: (value) => _name = value!,
               ),
               const SizedBox(height: 16),
               TextFormField(
-                initialValue: _email,
+                controller: _emailController,
                 decoration: const InputDecoration(labelText: 'E-posta'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'E-posta boş olamaz';
                   }
                   if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
-                    return 'Geçerli bir e-posta adresi girin';
+                    return 'Geçerli bir e-posta girin';
                   }
                   return null;
                 },
-                onSaved: (value) => _email = value!,
               ),
               const SizedBox(height: 16),
               TextFormField(
-                initialValue: _phone,
+                controller: _phoneController,
                 decoration:
                     const InputDecoration(labelText: 'Telefon Numarası'),
                 validator: (value) => value == null || value.isEmpty
-                    ? 'Telefon numarası boş olamaz'
+                    ? 'Telefon boş olamaz'
                     : null,
-                onSaved: (value) => _phone = value!,
               ),
               const SizedBox(height: 16),
               TextFormField(
-                initialValue: _bio,
+                controller: _bioController,
                 decoration: const InputDecoration(labelText: 'Biyografi'),
-                onSaved: (value) => _bio = value!,
                 maxLines: 3,
               ),
-              const SizedBox(height: 16),
-              SwitchListTile(
-                title: const Text('Bildirimleri Al'),
-                value: _notificationsEnabled,
-                onChanged: (bool value) {
-                  setState(() {
-                    _notificationsEnabled = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 8),
-              ElevatedButton(
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
                 onPressed: _saveProfile,
-                child: const Text('Güncelle'),
+                icon: const Icon(Icons.save),
+                label: const Text('Güncelle'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 153, 199, 212),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                ),
               ),
             ],
           ),

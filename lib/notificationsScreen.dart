@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:intl/intl.dart';
+import 'dart:async';
 
 class NotificationsScreen extends StatefulWidget {
   final int userId;
@@ -11,40 +13,67 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  List notifications = [];
+  List<dynamic> notifications = [];
+  bool isLoading = true;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     fetchNotifications();
+    // Her 10 saniyede bir bildirimleri kontrol et
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      fetchNotifications();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> fetchNotifications() async {
-    final url = Uri.parse("http://127.0.0.1:8000/employer/${widget.userId}/unread_applications");
-    final response = await http.get(url);
+    try {
+      final response = await http.get(
+        Uri.parse(
+            'http://127.0.0.1:8000/employer/${widget.userId}/notifications'),
+      );
 
-    if (response.statusCode == 200) {
+      if (response.statusCode == 200) {
+        final List<dynamic> decodedNotifications = json.decode(response.body);
+
+        // Okunmamış bildirimleri otomatik olarak okundu olarak işaretle
+        for (var notification in decodedNotifications) {
+          if (!notification['is_read']) {
+            await markAsRead(notification['job_id']);
+          }
+        }
+
+        setState(() {
+          notifications = decodedNotifications;
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
       setState(() {
-        notifications = json.decode(response.body);
+        isLoading = false;
       });
-    } else {
-      debugPrint("Bildirimler alınamadı: ${response.statusCode}");
     }
   }
 
-  Future<void> approveApplication(int applicationId) async {
-    final url = Uri.parse("http://127.0.0.1:8000/applications/$applicationId/approve");
-    final response = await http.patch(url);
-
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Başvuru onaylandı.")),
+  Future<void> markAsRead(int jobId) async {
+    try {
+      await http.post(
+        Uri.parse(
+            'http://127.0.0.1:8000/employer/${widget.userId}/mark_notification_read/$jobId'),
       );
-      fetchNotifications();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Onaylama başarısız: ${response.statusCode}")),
-      );
+    } catch (e) {
+      // Hata durumunda sessizce devam et
     }
   }
 
@@ -52,85 +81,103 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gelen Başvurular'),
+        title: const Text('Bildirimler'),
         backgroundColor: const Color.fromARGB(255, 103, 144, 153),
-        foregroundColor: Colors.white,
-        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              setState(() {
+                isLoading = true;
+              });
+              fetchNotifications();
+            },
+          ),
+        ],
       ),
-      backgroundColor: Colors.grey.shade100,
-      body: notifications.isEmpty
-          ? const Center(child: Text("Yeni başvuru yok."))
-          : Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: ListView.builder(
-                itemCount: notifications.length,
-                itemBuilder: (context, index) {
-                  final item = notifications[index];
-                  return Card(
-                    elevation: 3,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    margin: const EdgeInsets.symmetric(vertical: 10),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const CircleAvatar(
-                                radius: 24,
-                                backgroundColor: Colors.blueGrey,
-                                child: Icon(Icons.person, size: 28, color: Colors.white),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      "${item['user_name']} başvurdu",
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text("İlan: ${item['job_title']}"),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "Tarih: ${item['applicationDate']}",
-                                style: TextStyle(color: Colors.grey.shade600),
-                              ),
-                              ElevatedButton.icon(
-                                onPressed: () => approveApplication(item['application_id']),
-                                icon: const Icon(Icons.check_circle_outline),
-                                label: const Text("Onayla"),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : notifications.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Henüz bildiriminiz yok',
+                        style: TextStyle(fontSize: 18),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            isLoading = true;
+                          });
+                          fetchNotifications();
+                        },
+                        child: const Text('Yenile'),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: fetchNotifications,
+                  child: ListView.builder(
+                    itemCount: notifications.length,
+                    itemBuilder: (context, index) {
+                      final notification = notifications[index];
+                      final date =
+                          DateTime.parse(notification['application_date']);
+                      final formattedDate =
+                          DateFormat('dd.MM.yyyy HH:mm').format(date);
+
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        elevation: 2,
+                        child: ListTile(
+                          leading: const CircleAvatar(
+                            backgroundColor: Colors.blue,
+                            child: Icon(Icons.person, color: Colors.white),
+                          ),
+                          title: Text(
+                            '${notification['applicant_name']} adlı kullanıcı başvurdu',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 4),
+                              Text(
+                                'İlan: ${notification['job_title']}',
+                                style: const TextStyle(
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              Text(
+                                'Tarih: $formattedDate',
+                                style: const TextStyle(
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              Text(
+                                'Telefon: ${notification['applicant_phone']}',
+                                style: const TextStyle(
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
     );
   }
 }
