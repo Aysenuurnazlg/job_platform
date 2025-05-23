@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
-from sqlalchemy import func
+from sqlalchemy import func, distinct
 from database import SessionLocal, engine
 import models, schemas, crud
 from auth import authenticate_user, create_access_token, get_current_user
@@ -11,6 +11,7 @@ from models import User
 import datetime
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
+from fastapi import Query
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -62,9 +63,19 @@ def get_user_profile(user_id: int, db: Session = Depends(get_db)):
     user = crud.get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
-    completed_jobs = db.query(func.avg(models.Rating.rating)).filter(models.Rating.receiver_id == user_id).scalar()
+    
     rating = db.query(func.avg(models.Rating.rating)).filter_by(receiver_id=user_id).scalar() or 0.0
-    job_types = ["Montaj", "Tesisat"]  # Dummy data
+    
+    # Kullanıcının tamamladığı işler (is_completed=True ve worker_id=user_id olan işler)
+    completed_jobs = db.query(models.Job).filter(
+        models.Job.worker_id == user_id,
+        models.Job.is_completed == True
+    ).all()
+    
+    # İş türleri set olarak (örneğin job title)
+    job_types = list({job.title for job in completed_jobs})
+
+    # Kullanıcının aldığı yorumlar
     reviews = db.query(models.Rating).filter_by(receiver_id=user_id).all()
     review_list = [
         {
@@ -75,6 +86,7 @@ def get_user_profile(user_id: int, db: Session = Depends(get_db)):
         }
         for rater in reviews
     ]
+
     return {
         "id": user.id,
         "full_name": user.full_name,
@@ -82,7 +94,7 @@ def get_user_profile(user_id: int, db: Session = Depends(get_db)):
         "phone_number": user.phone_number,
         "bio": user.bio,
         "rating": round(rating, 1),
-        "completed_jobs": completed_jobs,
+        "completed_jobs": len(completed_jobs),
         "job_types": job_types,
         "reviews": review_list
     }
@@ -403,3 +415,18 @@ def complete_job(job_id: int, db: Session = Depends(get_db)):
     job.is_completed = True
     db.commit()
     return {"message": "İş tamamlandı olarak işaretlendi"}
+
+
+
+@app.get("/jobs/", response_model=List[schemas.Job])
+def read_jobs(
+    city: str = Query(None, description="İlanların filtreleneceği şehir"),
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.Job)
+    if city:
+        query = query.filter(models.Job.location == city)
+    jobs = query.offset(skip).limit(limit).all()
+    return jobs

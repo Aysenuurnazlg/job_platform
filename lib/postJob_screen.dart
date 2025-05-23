@@ -25,6 +25,8 @@ class _PostJobScreenState extends State<PostJobScreen> {
     'Markete gitme',
     'Ev Temizliği',
     'Refakatçi',
+    'Ulaşım Hizmetleri',
+    'Sosyal Destek'
   ];
 
   @override
@@ -133,7 +135,7 @@ class _PostJobScreenState extends State<PostJobScreen> {
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: const Text('İlan Ver'),
-        backgroundColor: const Color.fromARGB(255, 103, 144, 153),
+        backgroundColor: const Color.fromRGBO(74, 109, 124, 1),
         foregroundColor: Colors.white,
         elevation: 0,
       ),

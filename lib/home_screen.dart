@@ -27,6 +27,12 @@ class _HomeScreenState extends State<HomeScreen> {
   int _prevUnreadCount = 0;
   Timer? _notificationTimer;
 
+  List<String> cities = [
+    'Tüm Şehirler', 'Adana', 'Ankara', 'Antalya', 'Bursa',
+    'Gaziantep', 'İstanbul', 'İzmir', 'Konya', 'Kayseri'
+  ];
+  String selectedCity = 'Tüm Şehirler';
+
   Future<String> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('access_token') ?? '';
@@ -72,7 +78,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> fetchJobs() async {
-    final url = Uri.parse('http://127.0.0.1:8000/jobs/');
+    String urlStr = 'http://127.0.0.1:8000/jobs/';
+    if (selectedCity != 'Tüm Şehirler') {
+      urlStr += '?city=${Uri.encodeComponent(selectedCity)}';
+    }
+
+    final url = Uri.parse(urlStr);
     try {
       final response = await http.get(url);
       final utf8Body = utf8.decode(response.bodyBytes);
@@ -114,9 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _prevUnreadCount = unreadCount;
         }
       }
-    } catch (e) {
-      // Hata durumunda sessizce devam et
-    }
+    } catch (e) {}
   }
 
   void _showTopNotification(int count) {
@@ -177,7 +186,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     overlay.insert(overlayEntry);
 
-    // 3 saniye sonra bildirimi kaldır
     Future.delayed(const Duration(seconds: 3), () {
       if (overlayEntry.mounted) {
         overlayEntry.remove();
@@ -190,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFEFF2F5),
       appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 103, 144, 153),
+        backgroundColor: const Color.fromRGBO(74, 109, 124, 1),
         title: const Text('Ana Sayfa'),
         actions: [
           badges.Badge(
@@ -283,7 +291,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   decoration: const BoxDecoration(
-                    color: Color.fromARGB(255, 103, 144, 153),
+                    color:  Color.fromRGBO(74, 109, 124, 1),
                   ),
                 );
               },
@@ -327,21 +335,47 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : jobs.isEmpty
-              ? const Center(child: Text("Hiç ilan yok."))
-              : Padding(
-                  padding: const EdgeInsets.only(bottom: 100),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: jobs.length,
-                    itemBuilder: (context, index) {
-                      final job = jobs[index];
-                      return _buildJobCard(context, job);
-                    },
-                  ),
-                ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: DropdownButtonFormField<String>(
+              value: selectedCity,
+              decoration: const InputDecoration(
+                labelText: 'Şehir Seçin',
+                border: OutlineInputBorder(),
+              ),
+              items: cities.map((city) {
+                return DropdownMenuItem<String>(
+                  value: city,
+                  child: Text(city),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  selectedCity = value!;
+                  isLoading = true;
+                });
+                fetchJobs();
+              },
+            ),
+          ),
+          Expanded(
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : jobs.isEmpty
+                    ? const Center(child: Text("Hiç ilan yok."))
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 100),
+                        itemCount: jobs.length,
+                        itemBuilder: (context, index) {
+                          final job = jobs[index];
+                          return _buildJobCard(context, job);
+                        },
+                      ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           await Navigator.pushNamed(
@@ -353,7 +387,7 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         icon: const Icon(Icons.add),
         label: const Text('İlan Ver'),
-        backgroundColor: const Color.fromARGB(255, 103, 144, 153),
+        backgroundColor: const Color.fromRGBO(74, 109, 124, 1),
       ),
     );
   }
@@ -406,7 +440,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
               style: ElevatedButton.styleFrom(
                 foregroundColor: Colors.white,
-                backgroundColor: const Color.fromARGB(255, 103, 144, 153),
+                backgroundColor: const Color.fromRGBO(74, 109, 124, 1),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
